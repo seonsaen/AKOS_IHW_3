@@ -48,7 +48,7 @@ void cleanup() {
 
         // Только владелец удаляет системные объекты
         if (current_pid == owner) {
-            printf("\n[Владелец PID %d] Уничтожение семафоров и разделяемой памяти\n", current_pid);
+            printf("\n[MASTER %d] Уничтожение семафоров и разделяемой памяти\n", current_pid);
 
             if (fd_shm != -1) {
                 close(fd_shm);
@@ -60,16 +60,16 @@ void cleanup() {
 }
 
 void sigint_handler() {
-    printf("\n[PID %d] Получен SIGINT - завершение турнира\n", getpid());
+    printf("\n[%d] Получен SIGINT - завершение турнира\n", getpid());
 
     if (shared && shared != MAP_FAILED) {
         pid_t owner = shared->owner_pid;
 
         if (getpid() == owner) {
-            printf("[Владелец] Завершение дочерних процессов...\n");
+            printf("[MASTER] Завершение дочерних процессов...\n");
             shared->game_over = true;
 
-            // Будим всех студентов для завершения
+            // Будим всех игроков для завершения
             for (int i = 0; i < N; i++) {
                 sem_post(&shared->sem_start[i]);
             }
@@ -99,7 +99,7 @@ void child_logic(int id) {
     player_id = id;
     srand(time(NULL) ^ (getpid() << 16) ^ id);
 
-    printf("[Студент %d] Готов к турниру (PID: %d)\n", id, getpid());
+    printf("[PLAYER %d] Готов к турниру (PID: %d)\n", id, getpid());
 
     while (1) {
         if (sem_wait(&shared->sem_start[id]) == -1) {
@@ -109,7 +109,7 @@ void child_logic(int id) {
         }
 
         if (shared->game_over) {
-            printf("[Студент %d] Завершает участие в турнире\n", id);
+            printf("[PLAYER %d] Завершает участие в турнире\n", id);
             break;
         }
 
@@ -119,7 +119,7 @@ void child_logic(int id) {
 
         // Синхронизированный вывод
         sem_wait(&shared->output_mutex);
-        printf("  Студент %d показывает: %s\n", id, STR_MOVES[move]);
+        printf("  Игрок %d показывает: %s\n", id, STR_MOVES[move]);
         sem_post(&shared->output_mutex);
 
         // Сигнализируем о завершении хода
@@ -209,11 +209,11 @@ void run_tournament(int n_players) {
             shared->matches_played++;
 
             sem_wait(&shared->output_mutex);
-            printf("\n--- Матч %d/%d: Студент %d vs Студент %d ---\n",
+            printf("\n--- Матч %d/%d: Игрок %d vs Игрок %d ---\n",
                    shared->matches_played, total_matches, i, j);
             sem_post(&shared->output_mutex);
 
-            // Запускаем ходы студентов
+            // Запускаем ходы игроков
             sem_post(&shared->sem_start[i]);
             sem_post(&shared->sem_start[j]);
 
@@ -231,14 +231,14 @@ void run_tournament(int n_players) {
             printf("  Ходы: %s vs %s\n", STR_MOVES[move1], STR_MOVES[move2]);
 
             if (result == 0) {
-                printf("  Результат: НИЧЬЯ (+1 каждому)\n");
+                printf("  Ничья (+1,+1)\n");
                 shared->scores[i] += 1;
                 shared->scores[j] += 1;
             } else if (result == 1) {
-                printf("  Результат: ПОБЕДА Студента %d (+2 очка)\n", i);
+                printf("  Победил %d (+2)\n", i);
                 shared->scores[i] += 2;
             } else {
-                printf("  Результат: ПОБЕДА Студента %d (+2 очка)\n", j);
+                printf("  Победил %d (+2)\n", j);
                 shared->scores[j] += 2;
             }
             sem_post(&shared->output_mutex);
@@ -249,7 +249,7 @@ void run_tournament(int n_players) {
 }
 
 void print_final_results(int n_players) {
-    printf("\n=== ТУРНИР ЗАВЕРШЕН! ИТОГОВАЯ ТАБЛИЦА ===\n");
+    printf("\n=== Итоговая таблица ===\n");
 
     // Определяем структуру для результатов
     typedef struct {
@@ -279,7 +279,7 @@ void print_final_results(int n_players) {
 
     // Вывод результатов
     for (int i = 0; i < n_players; i++) {
-        printf("%d место: Студент %d - %d очков\n",
+        printf("%d место: Игрок %d - %d очков\n",
                i + 1, results[i].id, results[i].score);
     }
 }
@@ -294,12 +294,12 @@ int main(int argc, char *argv[]) {
         N = atoi(argv[1]);
     }
     if (N < 2 || N > MAX_PLAYERS) {
-        fprintf(stderr, "Ошибка: количество студентов должно быть от 2 до %d\n", MAX_PLAYERS);
+        fprintf(stderr, "Ошибка: количество игроков должно быть от 2 до %d\n", MAX_PLAYERS);
         return 1;
     }
 
     printf("=== Турнир 'Камень, Ножницы, Бумага' ===\n");
-    printf("Количество студентов: %d\n", N);
+    printf("Количество игроков: %d\n", N);
 
     // Инициализация разделяемой памяти
     init_shared_memory();

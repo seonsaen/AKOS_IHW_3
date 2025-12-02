@@ -1,16 +1,7 @@
-CC = gcc
-CFLAGS = -std=gnu11 -Wall -Wextra -O2 -pthread
+all: rps
 
-TARGET = rps
-SRC = main.c
-
-all: $(TARGET)
-
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o $(TARGET)
-
-run: $(TARGET)
-	./$(TARGET) 4
+rps: main.c
+	$(CC) main.c -o rps
 
 clean:
-	rm -f $(TARGET)
+	rm -f rps
